@@ -6,9 +6,10 @@
  * @flow
  */
 
-import type {RefObject} from 'shared/ReactTypes';
+import type { RefObject } from 'shared/ReactTypes';
 
 // an immutable object with a single mutable value
+//createRef其实就是返回了一个对象里面有一个current属性
 export function createRef(): RefObject {
   const refObject = {
     current: null,

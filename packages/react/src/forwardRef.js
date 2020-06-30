@@ -5,10 +5,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import {REACT_FORWARD_REF_TYPE, REACT_MEMO_TYPE} from 'shared/ReactSymbols';
+import { REACT_FORWARD_REF_TYPE, REACT_MEMO_TYPE } from 'shared/ReactSymbols';
 
 import warningWithoutStack from 'shared/warningWithoutStack';
 
+//forwardRef接受一个参数 是一个function component 然后直接返回一个这个function 以及
+//增加一个$$typeof 是REACT_FORWARD_REF_TYPE
 export default function forwardRef<Props, ElementType: React$ElementType>(
   render: (props: Props, ref: React$Ref<ElementType>) => React$Node,
 ) {
@@ -17,8 +19,8 @@ export default function forwardRef<Props, ElementType: React$ElementType>(
       warningWithoutStack(
         false,
         'forwardRef requires a render function but received a `memo` ' +
-          'component. Instead of forwardRef(memo(...)), use ' +
-          'memo(forwardRef(...)).',
+        'component. Instead of forwardRef(memo(...)), use ' +
+        'memo(forwardRef(...)).',
       );
     } else if (typeof render !== 'function') {
       warningWithoutStack(
@@ -41,7 +43,7 @@ export default function forwardRef<Props, ElementType: React$ElementType>(
       warningWithoutStack(
         render.defaultProps == null && render.propTypes == null,
         'forwardRef render functions do not support propTypes or defaultProps. ' +
-          'Did you accidentally pass a React component?',
+        'Did you accidentally pass a React component?',
       );
     }
   }
