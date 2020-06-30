@@ -363,17 +363,24 @@ ReactWork.prototype._onCommit = function (): void {
 };
 
 function ReactRoot(
-  container: DOMContainer,
-  isConcurrent: boolean,
-  hydrate: boolean,
+  container: DOMContainer,  //还是root这个节点 不过里面已经没有无用的child元素了
+  isConcurrent: boolean,    //传过来的是false
+  hydrate: boolean,         //是否ssr 跟服务端渲染有关系 默认是false
 ) {
+
+  //创建了一个fiberRoot
   const root = createContainer(container, isConcurrent, hydrate);
-  this._internalRoot = root;
+  this._internalRoot = root;  //在ReactRoot中加一个_internalRoot属性 值是root
 }
+
+
+//root.render 调这里
 ReactRoot.prototype.render = function (
-  children: ReactNodeList,
+  children: ReactNodeList,  //传入的是node节点 <App />
   callback: ?() => mixed,
 ): Work {
+
+  //this._internalRoot就是上面创建的fiberRoot
   const root = this._internalRoot;
   const work = new ReactWork();
   callback = callback === undefined ? null : callback;
@@ -383,6 +390,8 @@ ReactRoot.prototype.render = function (
   if (callback !== null) {
     work.then(callback);
   }
+
+  //work._onCommit封装了传进来的callback
   updateContainer(children, root, null, work._onCommit);
   return work;
 };
@@ -464,10 +473,11 @@ function isValidContainer(node) {
 }
 
 function getReactRootElementInContainer(container: any) {
+  //这里container肯定是有值的
   if (!container) {
     return null;
   }
-
+  //判断传入的root节点是否有子节点，如果有子节点react默认需要用调和子节点渲染
   if (container.nodeType === DOCUMENT_NODE) {
     return container.documentElement;
   } else {
@@ -480,7 +490,7 @@ function shouldHydrateDueToLegacyHeuristic(container) {
   return !!(
     rootElement &&
     rootElement.nodeType === ELEMENT_NODE &&
-    rootElement.hasAttribute(ROOT_ATTRIBUTE_NAME)
+    rootElement.hasAttribute(ROOT_ATTRIBUTE_NAME) //默认的节点上是否有data-reactroot这个
   );
 }
 
@@ -493,15 +503,20 @@ setBatchingImplementation(
 let warnedAboutHydrateAPI = false;
 
 function legacyCreateRootFromDOMContainer(
-  container: DOMContainer,
+  container: DOMContainer,  //element节点 root
   forceHydrate: boolean,
 ): Root {
+  //用render传过来的forceHydrate是false
+  //如果是false则执行后面的shouldHydrateDueToLegacyHeuristic方法 将element传进去
   const shouldHydrate =
     forceHydrate || shouldHydrateDueToLegacyHeuristic(container);
+  //没有服务端渲染的情况下shouldHydrate默认是false
   // First clear any existing content.
   if (!shouldHydrate) {
     let warned = false;
     let rootSibling;
+
+    //对container进行的属性进行遍历，去除掉所有的child 因为默认的container里面的子节点其实是没用的
     while ((rootSibling = container.lastChild)) {
       if (__DEV__) {
         if (
@@ -555,9 +570,10 @@ function legacyRenderSubtreeIntoContainer(
   if (!root) {
     // Initial mount
     //如果没有的话 增加_reactRootContainer这个属性
+    //legacyCreateRootFromDOMContainer返回的是reactRoot这个构造函数的事例 所以root的构造函数就是reactRoot
     root = container._reactRootContainer = legacyCreateRootFromDOMContainer(
       container,  //element节点传入
-      forceHydrate,
+      forceHydrate, //render传的是false forceHyd传过来是true
     );
     if (typeof callback === 'function') {
       const originalCallback = callback;
@@ -567,7 +583,11 @@ function legacyRenderSubtreeIntoContainer(
       };
     }
     // Initial mount should not be batched.
+
+    //批量更新操作  先直接认为执行了回调
     unbatchedUpdates(() => {
+
+      //parentComponent render传进来默认是null
       if (parentComponent != null) {
         root.legacy_renderSubtreeIntoContainer(
           parentComponent,
@@ -575,6 +595,8 @@ function legacyRenderSubtreeIntoContainer(
           callback,
         );
       } else {
+
+        //这里相当于调用reactRoot原型上的render方法
         root.render(children, callback);
       }
     });
