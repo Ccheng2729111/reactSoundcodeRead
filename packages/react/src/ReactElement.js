@@ -7,7 +7,7 @@
 
 import invariant from 'shared/invariant';
 import warningWithoutStack from 'shared/warningWithoutStack';
-import {REACT_ELEMENT_TYPE} from 'shared/ReactSymbols';
+import { REACT_ELEMENT_TYPE } from 'shared/ReactSymbols';
 
 import ReactCurrentOwner from './ReactCurrentOwner';
 
@@ -47,15 +47,15 @@ function hasValidKey(config) {
 }
 
 function defineKeyPropWarningGetter(props, displayName) {
-  const warnAboutAccessingKey = function() {
+  const warnAboutAccessingKey = function () {
     if (!specialPropKeyWarningShown) {
       specialPropKeyWarningShown = true;
       warningWithoutStack(
         false,
         '%s: `key` is not a prop. Trying to access it will result ' +
-          'in `undefined` being returned. If you need to access the same ' +
-          'value within the child component, you should pass it as a different ' +
-          'prop. (https://fb.me/react-special-props)',
+        'in `undefined` being returned. If you need to access the same ' +
+        'value within the child component, you should pass it as a different ' +
+        'prop. (https://fb.me/react-special-props)',
         displayName,
       );
     }
@@ -68,15 +68,15 @@ function defineKeyPropWarningGetter(props, displayName) {
 }
 
 function defineRefPropWarningGetter(props, displayName) {
-  const warnAboutAccessingRef = function() {
+  const warnAboutAccessingRef = function () {
     if (!specialPropRefWarningShown) {
       specialPropRefWarningShown = true;
       warningWithoutStack(
         false,
         '%s: `ref` is not a prop. Trying to access it will result ' +
-          'in `undefined` being returned. If you need to access the same ' +
-          'value within the child component, you should pass it as a different ' +
-          'prop. (https://fb.me/react-special-props)',
+        'in `undefined` being returned. If you need to access the same ' +
+        'value within the child component, you should pass it as a different ' +
+        'prop. (https://fb.me/react-special-props)',
         displayName,
       );
     }
@@ -108,9 +108,11 @@ function defineRefPropWarningGetter(props, displayName) {
  * @param {*} props
  * @internal
  */
-const ReactElement = function(type, key, ref, self, source, owner, props) {
+const ReactElement = function (type, key, ref, self, source, owner, props) {
+  //创建了一个element对象 把接受到的参数传进去 同时增加一个$$typeof属性
   const element = {
     // This tag allows us to uniquely identify this as a React Element
+    //$$typeof其实就是react对每个虚拟dom的一个唯一标识符，相当于是react的一个type  用于后期渲染实际的dom或者diff算法更新的时候用的
     $$typeof: REACT_ELEMENT_TYPE,
 
     // Built-in properties that belong on the element
@@ -160,7 +162,7 @@ const ReactElement = function(type, key, ref, self, source, owner, props) {
       Object.freeze(element);
     }
   }
-
+  //然后直接返回 这个处理后的element
   return element;
 };
 
@@ -168,7 +170,32 @@ const ReactElement = function(type, key, ref, self, source, owner, props) {
  * Create and return a new ReactElement of the given type.
  * See https://reactjs.org/docs/react-api.html#createelement
  */
+
+//React.createElement 将JSX转换成js
+{/* <div className='' id='div'>
+   <span>1</span>
+   <span>2</span>
+ </div>
+
+React.createElement(
+  'div',
+  { 'className': '', 'id': 'div' },
+  React.createElement(
+    'span',
+    {},
+    1
+  ),
+  React.createElement(
+    'span',
+    {},
+    2
+  )
+ ) */}
+
 export function createElement(type, config, children) {
+  //type  节点的类型 如果是组件 是一个function component 或者class component
+  //config 就是节点上的属性
+  //children 子类 有可能是function
   let propName;
 
   // Reserved names are extracted
@@ -180,9 +207,11 @@ export function createElement(type, config, children) {
   let source = null;
 
   if (config != null) {
+    //判断节点上的属性是否有ref
     if (hasValidRef(config)) {
       ref = config.ref;
     }
+    //判断节点上的属性是否有key
     if (hasValidKey(config)) {
       key = '' + config.key;
     }
@@ -190,6 +219,8 @@ export function createElement(type, config, children) {
     self = config.__self === undefined ? null : config.__self;
     source = config.__source === undefined ? null : config.__source;
     // Remaining properties are added to a new props object
+
+    //遍历节点属性 去除掉props中的key ref之类的 然后塞进一个新的对象里面
     for (propName in config) {
       if (
         hasOwnProperty.call(config, propName) &&
@@ -202,11 +233,16 @@ export function createElement(type, config, children) {
 
   // Children can be more than one argument, and those are transferred onto
   // the newly allocated props object.
+
+  //因为createElement接受的参数从第三位开始可能会由多个，第三位往后都是属于children 所以先获取长度
   const childrenLength = arguments.length - 2;
+  //如果长度是一个的话 那就直接props.children 把这一个放到props里面
   if (childrenLength === 1) {
     props.children = children;
   } else if (childrenLength > 1) {
+    //多个的话 先生成这个长度的数组
     const childArray = Array(childrenLength);
+    //再通过for循环 遍历 将所有的children从argument中取出来 放进新数组里面
     for (let i = 0; i < childrenLength; i++) {
       childArray[i] = arguments[i + 2];
     }
@@ -215,10 +251,15 @@ export function createElement(type, config, children) {
         Object.freeze(childArray);
       }
     }
+
+    //再放进props.children 这个时候其实就是一个数组了。里面是多个children
     props.children = childArray;
   }
 
   // Resolve default props
+
+  //这里判断type 并且有属性defaultProps的话 那说明这个type是一个class component或者是function component
+  //那么这里遍历defaultProps，如果props本身没有这个属性的话，那就从defaultProps中获取
   if (type && type.defaultProps) {
     const defaultProps = type.defaultProps;
     for (propName in defaultProps) {
@@ -241,6 +282,7 @@ export function createElement(type, config, children) {
       }
     }
   }
+
   return ReactElement(
     type,
     key,
