@@ -676,7 +676,7 @@ const ReactDOM: Object = {
   render(
     element: React$Element<any>,  //element就是<App />这个node节点
     container: DOMContainer,      //container就是获取的element节点
-    callback: ?Function,  //回掉，在渲染完毕后执行这个callback
+    callback: ?Function,  //回掉，在渲染完毕后执行这个callback1
   ) {
     invariant(
       isValidContainer(container),
