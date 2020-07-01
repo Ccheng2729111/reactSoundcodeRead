@@ -139,6 +139,8 @@ function scheduleRootUpdate(
   const update = createUpdate(expirationTime);
   // Caution: React DevTools currently depends on this property
   // being called "element".
+
+  //获取render传入的node节点 || setState传入的第一个参数 一个对象或者是一个function
   update.payload = { element };
 
   callback = callback === undefined ? null : callback;
@@ -155,6 +157,8 @@ function scheduleRootUpdate(
   flushPassiveEffects();
 
   //利用队列进行更新，一个节点可能有多次更新
+  //current当前的fiber
+  //update创建的update对象
   enqueueUpdate(current, update);
 
   //通知react进行调度 新的调度机制 有多个不同级的优先级的任务，需要通知哪些先调用 哪些后调用

@@ -84,23 +84,23 @@
 // regardless of priority. Intermediate state may vary according to system
 // resources, but the final state is always the same.
 
-import type {Fiber} from './ReactFiber';
-import type {ExpirationTime} from './ReactFiberExpirationTime';
+import type { Fiber } from './ReactFiber';
+import type { ExpirationTime } from './ReactFiberExpirationTime';
 
-import {NoWork} from './ReactFiberExpirationTime';
+import { NoWork } from './ReactFiberExpirationTime';
 import {
   enterDisallowedContextReadInDEV,
   exitDisallowedContextReadInDEV,
 } from './ReactFiberNewContext';
-import {Callback, ShouldCapture, DidCapture} from 'shared/ReactSideEffectTags';
-import {ClassComponent} from 'shared/ReactWorkTags';
+import { Callback, ShouldCapture, DidCapture } from 'shared/ReactSideEffectTags';
+import { ClassComponent } from 'shared/ReactWorkTags';
 
 import {
   debugRenderPhaseSideEffects,
   debugRenderPhaseSideEffectsForStrictMode,
 } from 'shared/ReactFeatureFlags';
 
-import {StrictMode} from './ReactTypeOfMode';
+import { StrictMode } from './ReactTypeOfMode';
 
 import invariant from 'shared/invariant';
 import warningWithoutStack from 'shared/warningWithoutStack';
@@ -132,10 +132,10 @@ export type UpdateQueue<State> = {
   lastCapturedEffect: Update<State> | null,
 };
 
-export const UpdateState = 0;
-export const ReplaceState = 1;
-export const ForceUpdate = 2;
-export const CaptureUpdate = 3;
+export const UpdateState = 0; //更新state状态
+export const ReplaceState = 1;//替换state状态
+export const ForceUpdate = 2;//强制更新状态
+export const CaptureUpdate = 3;//出错的error情况
 
 // Global state that is reset at the beginning of calling `processUpdateQueue`.
 // It should only be read right after calling `processUpdateQueue`, via
@@ -154,10 +154,11 @@ if (__DEV__) {
 }
 
 export function createUpdateQueue<State>(baseState: State): UpdateQueue<State> {
+  //baseState 上次的state
   const queue: UpdateQueue<State> = {
     baseState,
-    firstUpdate: null,
-    lastUpdate: null,
+    firstUpdate: null,  //队列 链表结构中的第一个
+    lastUpdate: null,   //队列 链表结构中的最后一个
     firstCapturedUpdate: null,
     lastCapturedUpdate: null,
     firstEffect: null,
@@ -191,13 +192,16 @@ function cloneUpdateQueue<State>(
 }
 
 export function createUpdate(expirationTime: ExpirationTime): Update<*> {
+  //ExpirationTime更新的过期时间
   return {
     expirationTime: expirationTime,
-
+    //调度时候不同的状态
     tag: UpdateState,
+
+    //外层传入的element
     payload: null,
     callback: null,
-
+    //单向链表结构 next指向updateToQueue队列中的下一个表
     next: null,
     nextEffect: null,
   };
@@ -208,10 +212,12 @@ function appendUpdateToQueue<State>(
   update: Update<State>,
 ) {
   // Append the update to the end of the list.
+  // 这里判断了当前队列中是否有最后一个update 如果没有的话 说明是个空的队列
   if (queue.lastUpdate === null) {
     // Queue is empty
     queue.firstUpdate = queue.lastUpdate = update;
   } else {
+    //如果有的话 那么我们链表 将我们的update进行链接
     queue.lastUpdate.next = update;
     queue.lastUpdate = update;
   }
@@ -219,34 +225,50 @@ function appendUpdateToQueue<State>(
 
 export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
   // Update queues are created lazily.
+  // alternate：
+  // 在Fiber树更新的过程中，每个Fiber都会有一个跟其对应的Fiber
+  // 我们称他为`current <==> workInProgress`
+  // 在渲染完成之后他们会交换位置
+  // 避免在下次渲染的时候再创建一个对象，利用doubleBuffer来优化
   const alternate = fiber.alternate;
   let queue1;
   let queue2;
+  //如果当前的调换空间是null的话
+  //直接创建一个更新队列 并且赋值给fiber.updateQueue
   if (alternate === null) {
     // There's only one fiber.
     queue1 = fiber.updateQueue;
     queue2 = null;
     if (queue1 === null) {
+      //fiber.memoizedState 上次渲染的时候的state
+      //如果当前的这个fiber的updateQueue 队列是空的话创建一个updateQueue
       queue1 = fiber.updateQueue = createUpdateQueue(fiber.memoizedState);
     }
   } else {
+    //如果不是null的话 说明上次更新过
     // There are two owners.
+    //分别拿到两个空间的更新队列
     queue1 = fiber.updateQueue;
     queue2 = alternate.updateQueue;
     if (queue1 === null) {
       if (queue2 === null) {
+        // 如果都没有更新队列的话 给两个空间都创建队列 队列的中的baseState是上次渲染的state
         // Neither fiber has an update queue. Create new ones.
         queue1 = fiber.updateQueue = createUpdateQueue(fiber.memoizedState);
         queue2 = alternate.updateQueue = createUpdateQueue(
           alternate.memoizedState,
         );
       } else {
+        //如果只有fiber空间中的更新队列是空的话那么我们clone一下放到的alternate的更新队列
+        //queue1 => queue2
         // Only one fiber has an update queue. Clone to create a new one.
         queue1 = fiber.updateQueue = cloneUpdateQueue(queue2);
       }
     } else {
       if (queue2 === null) {
         // Only one fiber has an update queue. Clone to create a new one.
+        //如果只有alternate空间中的更新队列是空的话那么我们clone一下放到的fiber的更新队列
+        //queue2 => queue1
         queue2 = alternate.updateQueue = cloneUpdateQueue(queue1);
       } else {
         // Both owners have an update queue.
@@ -273,6 +295,12 @@ export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
     }
   }
 
+
+  //  其实这个方法就是用了一个类似GC v8的form to空间内存的一个模式
+  //  在更新结束之后进行一个 queue1 与 queue2的一个置换
+  //  每次渲染一次都置换一次，不过置换之前需要判断是否是首次渲染，如果是的话需要手动创建一个updateQueue
+  //  目的就是性能优化，避免每次更新都要创建一个新的对象去存储我们更新后的props state一些内置的属性。
+
   if (__DEV__) {
     if (
       fiber.tag === ClassComponent &&
@@ -283,9 +311,9 @@ export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
       warningWithoutStack(
         false,
         'An update (setState, replaceState, or forceUpdate) was scheduled ' +
-          'from inside an update function. Update functions should be pure, ' +
-          'with zero side-effects. Consider using componentDidUpdate or a ' +
-          'callback.',
+        'from inside an update function. Update functions should be pure, ' +
+        'with zero side-effects. Consider using componentDidUpdate or a ' +
+        'callback.',
       );
       didWarnUpdateInsideUpdate = true;
     }
@@ -567,7 +595,7 @@ function callCallback(callback, context) {
   invariant(
     typeof callback === 'function',
     'Invalid argument passed as callback. Expected a function. Instead ' +
-      'received: %s',
+    'received: %s',
     callback,
   );
   callback.call(context);
