@@ -2,4 +2,4 @@
 
 ## 配合commit记录来看 
 
-### 进度 reactDOM.render、createElement 、React.createContext、React.Component、React.createRef()、React.fowardRef()
+### 进度 reactDOM.render、createElement 、React.createContext、React.Component、React.createRef()、React.forwardRef()
