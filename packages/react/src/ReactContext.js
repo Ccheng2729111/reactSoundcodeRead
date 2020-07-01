@@ -7,13 +7,16 @@
  * @flow
  */
 
-import {REACT_PROVIDER_TYPE, REACT_CONTEXT_TYPE} from 'shared/ReactSymbols';
+import { REACT_PROVIDER_TYPE, REACT_CONTEXT_TYPE } from 'shared/ReactSymbols';
 
-import type {ReactContext} from 'shared/ReactTypes';
+import type { ReactContext } from 'shared/ReactTypes';
 
 import warningWithoutStack from 'shared/warningWithoutStack';
 import warning from 'shared/warning';
 
+//const {Provider.Customer} = React.createContext('default')
+//基本用法
+//defaultValue 默认传入的参数
 export function createContext<T>(
   defaultValue: T,
   calculateChangedBits: ?(a: T, b: T) => number,
@@ -24,15 +27,17 @@ export function createContext<T>(
     if (__DEV__) {
       warningWithoutStack(
         calculateChangedBits === null ||
-          typeof calculateChangedBits === 'function',
+        typeof calculateChangedBits === 'function',
         'createContext: Expected the optional second argument to be a ' +
-          'function. Instead received: %s',
+        'function. Instead received: %s',
         calculateChangedBits,
       );
     }
   }
 
+  //定义一个context
   const context: ReactContext<T> = {
+    //标识符
     $$typeof: REACT_CONTEXT_TYPE,
     _calculateChangedBits: calculateChangedBits,
     // As a workaround to support multiple concurrent renderers, we categorize
@@ -40,6 +45,7 @@ export function createContext<T>(
     // there to be two concurrent renderers at most: React Native (primary) and
     // Fabric (secondary); React DOM (primary) and React ART (secondary).
     // Secondary renderers store their context values on separate fields.
+    //记录最新value值
     _currentValue: defaultValue,
     _currentValue2: defaultValue,
     // Used to track how many concurrent renderers this context currently
@@ -50,7 +56,10 @@ export function createContext<T>(
     Consumer: (null: any),
   };
 
+
+  //给context增加一个属性 Provider
   context.Provider = {
+    //唯一标识符
     $$typeof: REACT_PROVIDER_TYPE,
     _context: context,
   };
@@ -76,7 +85,7 @@ export function createContext<T>(
             warning(
               false,
               'Rendering <Context.Consumer.Provider> is not supported and will be removed in ' +
-                'a future major release. Did you mean to render <Context.Provider> instead?',
+              'a future major release. Did you mean to render <Context.Provider> instead?',
             );
           }
           return context.Provider;
@@ -116,7 +125,7 @@ export function createContext<T>(
             warning(
               false,
               'Rendering <Context.Consumer.Consumer> is not supported and will be removed in ' +
-                'a future major release. Did you mean to render <Context.Consumer> instead?',
+              'a future major release. Did you mean to render <Context.Consumer> instead?',
             );
           }
           return context.Consumer;
@@ -126,6 +135,7 @@ export function createContext<T>(
     // $FlowFixMe: Flow complains about missing properties because it doesn't understand defineProperty
     context.Consumer = Consumer;
   } else {
+    //给context增加一个Constumer属性 指向的是context这个对象，所以Consumer可以获取到最新的value值
     context.Consumer = context;
   }
 
