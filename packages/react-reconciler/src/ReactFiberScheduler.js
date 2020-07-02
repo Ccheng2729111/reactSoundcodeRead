@@ -1207,18 +1207,31 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
 }
 
 function workLoop(isYieldy) {
+  //isYieldyd代表是否当前的任务可以被中断
+  //同步任务或者是experationTime超时的任务 都是true
   if (!isYieldy) {
     // Flush work without yielding
     while (nextUnitOfWork !== null) {
+      //不可被中断 所以要继续更新下一个节点
       nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     }
   } else {
     // Flush asynchronous work until there's a higher priority event
+    //可以被中断的情况下，我们需要调用shouldYieldToRenderer 判断是不是要中断任务
+    //通常是我们的deadline到了，应该把调度器交还给浏览器了的时候
+    //如果不该中断 并且还有下一个节点需要更新的时候 再进行更新下一个节点
     while (nextUnitOfWork !== null && !shouldYieldToRenderer()) {
       nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     }
   }
 }
+
+//renderRoot其实就是对整个fiber数的一个遍历更新的过程
+//他会一直遍历整个fiber tree 并且拿到每一个fiber对象进行更新 通过updateQueue来进行更新
+//在更新的过程中会捕获发生的error 其中 有可以预测的error 比如 在suspence中我们return的 throw Promise 也有不可预测的错误
+//当遇到了某一个节点的fiber发生了错误，我们走catch error的周期并且跳出 当前节点以及下面子节点的更新
+//因为在捕获到错误之后 子节点也没有必要进行更新渲染了
+// 然后在整个树更新完成之后，再进行一遍error的捕获，都没有问题了，再进行把fiber树映射到真实DOM的过程
 
 function renderRoot(root: FiberRoot, isYieldy: boolean): void {
   invariant(
@@ -1237,6 +1250,9 @@ function renderRoot(root: FiberRoot, isYieldy: boolean): void {
 
   // Check if we're starting from a fresh stack, or if we're resuming from
   // previously yielded work.
+  //这里判断当前的expirationTime是不是等于下一次渲染的expirationTime
+  //或者root是不是等于下一次的root
+  //如果不是，说明下次插进来的可能是之前的一个异步任务被一个高优先级的任务打断了
   if (
     expirationTime !== nextRenderExpirationTime ||
     root !== nextRoot ||
@@ -1246,6 +1262,7 @@ function renderRoot(root: FiberRoot, isYieldy: boolean): void {
     resetStack();
     nextRoot = root;
     nextRenderExpirationTime = expirationTime;
+    //这边createWorkInProgress相当于copy一份当前更新fiber节点，因为目前的整个更新是不在render tree上的。
     nextUnitOfWork = createWorkInProgress(
       nextRoot.current,
       null,
@@ -1309,6 +1326,7 @@ function renderRoot(root: FiberRoot, isYieldy: boolean): void {
 
   startWorkLoopTimer(nextUnitOfWork);
 
+  //这里开始loop 更新
   do {
     try {
       workLoop(isYieldy);
