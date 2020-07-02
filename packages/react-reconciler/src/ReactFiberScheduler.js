@@ -374,8 +374,11 @@ if (__DEV__ && replayFailedUnitOfWorkWithInvokeGuardedCallback) {
 }
 
 function resetStack() {
+  //看当前的任务是不是异步任务
   if (nextUnitOfWork !== null) {
     let interruptedWork = nextUnitOfWork.return;
+    //如果是异步任务并且需要reset的时候 需要退回更新
+    //就算上层节点已经更新了也要退回更新 以免state更新错乱
     while (interruptedWork !== null) {
       unwindInterruptedWork(interruptedWork);
       interruptedWork = interruptedWork.return;
@@ -387,6 +390,7 @@ function resetStack() {
     checkThatStackIsEmpty();
   }
 
+  //reset之后进行一些初始化
   nextRoot = null;
   nextRenderExpirationTime = NoWork;
   nextLatestAbsoluteTimeoutMs = -1;
@@ -1145,10 +1149,13 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
 }
 
 function performUnitOfWork(workInProgress: Fiber): Fiber | null {
+  // 要更新的下一个fiber节点
   // The current, flushed, state of this fiber is the alternate.
   // Ideally nothing should rely on this, but relying on it here
   // means that we don't need an additional field on the work in
   // progress.
+
+  //alternate 就是之前说的交换空间 doubleBuffer 也就是updateQueue的换置对象
   const current = workInProgress.alternate;
 
   // See if beginning this work spawns more work.
@@ -1170,7 +1177,9 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
       startProfilerTimer(workInProgress);
     }
 
+    //拿到当前节点的下一个子节点child
     next = beginWork(current, workInProgress, nextRenderExpirationTime);
+    //更新props
     workInProgress.memoizedProps = workInProgress.pendingProps;
 
     if (workInProgress.mode & ProfileMode) {
@@ -1198,11 +1207,14 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
 
   if (next === null) {
     // If this doesn't spawn new work, complete the current work.
+    //如果当前的节点下面next没有节点 说明当前的分之已经遍历结束了
+    //找到它的兄弟节点并且返回给next
     next = completeUnitOfWork(workInProgress);
   }
 
   ReactCurrentOwner.current = null;
 
+  //最后当前分支结束 返回他的siblig指向的兄弟节点进行下一次的遍历
   return next;
 }
 
@@ -1213,6 +1225,8 @@ function workLoop(isYieldy) {
     // Flush work without yielding
     while (nextUnitOfWork !== null) {
       //不可被中断 所以要继续更新下一个节点
+      //进行一个循环
+      //一直到没有下一个节点，也没有兄弟节点的时候 跳出loop
       nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     }
   } else {
@@ -1759,6 +1773,8 @@ function retryTimedOutBoundary(boundaryFiber: Fiber, thenable: Thenable) {
   }
 }
 
+//这个方法是用来找到rootFiber对象也就是fiber的顶端节点
+//因为最终放进调度队列的是rootFiber
 function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
   recordScheduleUpdate();
 
@@ -1770,6 +1786,8 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
   }
 
   // Update the source fiber's expiration time
+  //如果当前的expirationTime比当前fiber节点已经有的expirationTime小的话
+  //说明当前的任务权重比较高，所以我们需要将当前的expirationTime赋值给fiber中已经有的expirationTime
   if (fiber.expirationTime < expirationTime) {
     fiber.expirationTime = expirationTime;
   }
@@ -1778,13 +1796,19 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
     alternate.expirationTime = expirationTime;
   }
   // Walk the parent path to the root and update the child expiration time.
+  //fiber节点的return指的是父亲节点 所以这里可以通过return 回来的是不是null 以及
+  //fiber中的tag是不是hostRoot 这里hostRoot就是表示rootFiber来判断
+  //而rootFiber的stateNode指向的就是root 也就是fiberRoot对象 也就是顶点的root
   let node = fiber.return;
   let root = null;
   if (node === null && fiber.tag === HostRoot) {
     root = fiber.stateNode;
   } else {
+    //如果不是，那就遍历直到找到rootFiber
     while (node !== null) {
       alternate = node.alternate;
+      //这里的childExpirationTime是指的fiber节点的子节点中权重最高的ExpirationTime
+      //然后进行置换成当前ExpirationTime 如果当前的ExpirationTime小于它的话
       if (node.childExpirationTime < expirationTime) {
         node.childExpirationTime = expirationTime;
         if (
@@ -1842,6 +1866,7 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
       }
     }
   }
+  //返回了最终的root FiberRoot
   return root;
 }
 
@@ -1867,6 +1892,8 @@ export function warnIfNotCurrentlyBatchingInDev(fiber: Fiber): void {
 }
 
 function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
+  //fiber当前更新的fiber节点
+  //expirationTime计算出来的过期时间
   const root = scheduleWorkToRoot(fiber, expirationTime);
   if (root === null) {
     if (__DEV__) {
@@ -1885,6 +1912,9 @@ function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
     return;
   }
 
+  //isWorking表示是否正在渲染中
+  //nextRenderExpirationTime !== NoWork 表示当前渲染ExpirationTime正在执行
+  //expirationTime > nextRenderExpirationTime表示
   if (
     !isWorking &&
     nextRenderExpirationTime !== NoWork &&
@@ -1898,6 +1928,8 @@ function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
   if (
     // If we're in the render phase, we don't need to schedule this root
     // for an update, because we'll do it before we exit...
+    //这里isCommitting表示当前fiber树的渲染已经结束
+    //并且在映射到真实DOM的这个过程的阶段 是不可打断的
     !isWorking ||
     isCommitting ||
     // ...unless this is a different root than the one we're rendering.
