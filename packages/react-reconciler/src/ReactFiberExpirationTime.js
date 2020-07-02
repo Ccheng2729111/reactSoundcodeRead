@@ -19,6 +19,7 @@ const UNIT_SIZE = 10;
 const MAGIC_NUMBER_OFFSET = MAX_SIGNED_31_BIT_INT - 1;
 
 // 1 unit of expiration time represents 10ms.
+//传入加载时间
 export function msToExpirationTime(ms: number): ExpirationTime {
   // Always add an offset so that we don't clash with the magic number for NoWork.
   return MAGIC_NUMBER_OFFSET - ((ms / UNIT_SIZE) | 0);
@@ -31,6 +32,10 @@ export function expirationTimeToMs(expirationTime: ExpirationTime): number {
 function ceiling(num: number, precision: number): number {
   return (((num / precision) | 0) + 1) * precision;
 }
+
+//这里的算法就是在比如我们在毫秒级别的时间内，多次setState的时候，让他的expirationTime的值是相同的
+//expirationTime值相同以为着他们的权重 任务调度的优先级是一样的 不需要做区别
+//这样的好处是可以优化性能
 
 function computeExpirationBucket(
   currentTime,

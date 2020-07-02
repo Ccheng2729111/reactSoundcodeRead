@@ -294,10 +294,12 @@ export function updateContainer(
   parentComponent: ?React$Component<any, any>,
   callback: ?Function,
 ): ExpirationTime {
+  //container.current就是我们的当前的这个fiber对象
   const current = container.current;
   const currentTime = requestCurrentTime();
 
   //利用新的fiber的调度机制计算出单个调度时间
+  //conca
   const expirationTime = computeExpirationForFiber(currentTime, current);
   return updateContainerAtExpirationTime(
     element,
