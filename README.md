@@ -6,6 +6,6 @@
 
 -----------------------------------------
 
-关于fiber的图解 比较劣质 
+关于fiber的图解
 
 ![image](https://github.com/Ccheng2729111/reactSoundcodeRead/blob/master/IMG/fiber.jpg)
